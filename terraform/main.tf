@@ -54,7 +54,7 @@ variable "credentials_file" {
 provider "google" {
   project     = var.project_id
   region      = var.region
-  credentials = var.credentials_file  # サービスアカウントキーを使用する場合のみ指定
+  credentials = var.credentials_file != null ? var.credentials_file : null
 }
 
 # Enable required APIs
