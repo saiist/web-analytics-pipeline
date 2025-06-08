@@ -2,6 +2,13 @@
 
 このプロジェクトは、Google Cloud Platformサービスを使用した完全なWebアナリティクスパイプラインを実装しています。
 
+## ✨ 主な特徴
+
+- 🔐 **自動認証**: Makefileが認証ファイルを自動検出・設定
+- 🚀 **簡単デプロイ**: `make deploy`一つでインフラ構築完了
+- 🗑️ **安全な削除**: 削除保護の自動無効化
+- 📋 **完全日本語**: ドキュメントとコメントが全て日本語
+
 ## アーキテクチャ
 
 - **フロントエンド**: Cloud Storage上でホストされる静的HTMLウェブサイト
@@ -30,26 +37,37 @@
 
 ### 事前準備
 
-1. Google Cloud認証を設定:
+Google Cloud認証の設定（以下のいずれか）:
+
+**方法1: Application Default Credentials（推奨）**
 ```bash
-# 認証方法を確認
-make auth
-
-# Application Default Credentials（推奨）
 gcloud auth application-default login
+```
 
-# またはgcloud認証
-gcloud auth login
+**方法2: サービスアカウントキー（自動作成）**
+```bash
+# サービスアカウントとキーを自動作成
+gcloud iam service-accounts create terraform-service --display-name="Terraform Service Account"
+gcloud projects add-iam-policy-binding $(gcloud config get-value project) --member="serviceAccount:terraform-service@$(gcloud config get-value project).iam.gserviceaccount.com" --role="roles/editor"
+gcloud projects add-iam-policy-binding $(gcloud config get-value project) --member="serviceAccount:terraform-service@$(gcloud config get-value project).iam.gserviceaccount.com" --role="roles/run.admin"
+gcloud iam service-accounts keys create ~/terraform-key.json --iam-account=terraform-service@$(gcloud config get-value project).iam.gserviceaccount.com
+```
+
+**認証状況の確認**
+```bash
+make auth  # 現在の認証状況とガイダンスを表示
 ```
 
 ### Makefileを使用（推奨）
+
+**認証は自動検出されます** - 環境変数の手動設定は不要！
 
 ```bash
 # 依存関係を確認
 make check-deps
 
-# Terraformを初期化
-make init
+# 認証状況を確認
+make auth
 
 # terraform.tfvarsファイルを設定
 cd terraform
@@ -57,23 +75,33 @@ cp terraform.tfvars.example terraform.tfvars
 # プロジェクト詳細を編集
 cd ..
 
-# 完全なインフラをデプロイ
+# 完全なインフラをデプロイ（認証ファイル自動検出）
 make deploy
 
 # Cloud Functionをテスト
 make test PROJECT_ID=your-project-id
 ```
 
+💡 **自動認証機能**: Makefileが以下のファイルを自動検出します：
+- `~/terraform-key.json`（サービスアカウントキー）
+- `~/.config/gcloud/application_default_credentials.json`（ADC）
+
 ### Terraformを直接使用
 
-1. セットアップ:
+1. 認証設定:
+```bash
+# 環境変数を手動設定（認証ファイルがある場合）
+export GOOGLE_APPLICATION_CREDENTIALS="~/terraform-key.json"
+```
+
+2. セットアップ:
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 # プロジェクト詳細でterraform.tfvarsを編集
 ```
 
-2. デプロイ:
+3. デプロイ:
 ```bash
 terraform init
 terraform plan
@@ -173,9 +201,11 @@ terraform destroy
 
 ## 利用可能なMakeコマンド
 
+**🔐 全コマンドで認証は自動検出・設定されます**
+
 ```bash
 make help           # 利用可能なコマンドを表示
-make auth           # Google Cloud認証の設定方法を表示
+make auth           # Google Cloud認証の状況確認
 make check-deps     # 依存関係をチェック
 make init           # Terraformを初期化
 make deploy         # 完全なインフラをデプロイ
@@ -186,3 +216,12 @@ make bq-setup       # BigQueryリソースを手動作成
 make web-deploy     # Webサイトのみをデプロイ
 make clean          # 一時ファイルを削除
 ```
+
+### 🔧 認証トラブルシューティング
+
+認証エラーが発生した場合：
+```bash
+make auth  # 認証状況を確認
+```
+
+認証ファイルが見つからない場合の解決方法が表示されます。
