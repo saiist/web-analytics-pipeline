@@ -30,6 +30,24 @@ check-deps:
 # 認証ファイルの自動検出
 CREDENTIALS_FILE := $(shell if [ -f ~/terraform-key.json ]; then echo ~/terraform-key.json; elif [ -f ~/.config/gcloud/application_default_credentials.json ]; then echo ~/.config/gcloud/application_default_credentials.json; else echo ""; fi)
 
+# 認証付きコマンド実行のヘルパー
+define run_with_auth
+	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
+		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
+		cd $(1) && GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" $(2); \
+	else \
+		echo "Warning: 認証ファイルが見つかりません"; \
+		cd $(1) && $(2); \
+	fi
+endef
+
+define require_auth
+	@if [ -z "$(CREDENTIALS_FILE)" ]; then \
+		echo "Error: 認証ファイルが見つかりません。'make auth'を実行してください"; \
+		exit 1; \
+	fi
+endef
+
 # Google Cloud認証の設定
 auth:
 	@echo "Google Cloud認証を設定中..."
@@ -49,13 +67,7 @@ auth:
 # Terraformの初期化
 init: check-deps
 	@echo "Terraformを初期化中..."
-	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
-		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
-		cd terraform && GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" terraform init; \
-	else \
-		echo "Warning: 認証ファイルが見つかりません。'make auth'を実行してください"; \
-		cd terraform && terraform init; \
-	fi
+	$(call run_with_auth,terraform,terraform init)
 
 # terraform.tfvarsファイルの存在確認
 terraform/terraform.tfvars:
@@ -68,27 +80,17 @@ terraform/terraform.tfvars:
 # 完全なインフラデプロイ
 deploy: init terraform/terraform.tfvars
 	@echo "インフラをデプロイ中..."
-	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
-		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
-		cd terraform && GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" terraform plan && \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" terraform apply -auto-approve; \
-	else \
-		echo "Error: 認証ファイルが見つかりません。'make auth'を実行してください"; \
-		exit 1; \
-	fi
+	$(call require_auth)
+	$(call run_with_auth,terraform,terraform plan)
+	$(call run_with_auth,terraform,terraform apply -auto-approve)
 
 # 全リソース削除
 destroy: terraform/terraform.tfvars
 	@echo "全リソースを削除中..."
 	@echo "注意: BigQueryテーブルの削除保護を無効化してから削除します"
-	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
-		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
-		cd terraform && GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" terraform apply -auto-approve -var="deletion_protection=false" || true && \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" terraform destroy -auto-approve; \
-	else \
-		echo "Error: 認証ファイルが見つかりません。'make auth'を実行してください"; \
-		exit 1; \
-	fi
+	$(call require_auth)
+	$(call run_with_auth,terraform,terraform apply -auto-approve -var="deletion_protection=false" || true)
+	$(call run_with_auth,terraform,terraform destroy -auto-approve)
 
 # Cloud Functionのテスト
 test:
@@ -110,22 +112,8 @@ function-deploy: check-deps
 		echo "例: make function-deploy PROJECT_ID=your-project-id"; \
 		exit 1; \
 	fi
-	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
-		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" gcloud config set project $(PROJECT_ID); \
-		cd function && GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" gcloud functions deploy track-event \
-			--runtime nodejs20 \
-			--trigger-http \
-			--allow-unauthenticated \
-			--entry-point trackEvent; \
-	else \
-		gcloud config set project $(PROJECT_ID); \
-		cd function && gcloud functions deploy track-event \
-			--runtime nodejs20 \
-			--trigger-http \
-			--allow-unauthenticated \
-			--entry-point trackEvent; \
-	fi
+	$(call run_with_auth,.,gcloud config set project $(PROJECT_ID))
+	$(call run_with_auth,function,gcloud functions deploy track-event --runtime nodejs20 --trigger-http --allow-unauthenticated --entry-point trackEvent)
 
 # ローカルでCloud Functionをテスト
 function-test:
@@ -142,14 +130,8 @@ bq-setup: check-deps
 		echo "例: make bq-setup PROJECT_ID=your-project-id"; \
 		exit 1; \
 	fi
-	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
-		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" bq mk --dataset --location=US $(PROJECT_ID):analytics; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" bq query --use_legacy_sql=false < create_events_table.sql; \
-	else \
-		bq mk --dataset --location=US $(PROJECT_ID):analytics; \
-		bq query --use_legacy_sql=false < create_events_table.sql; \
-	fi
+	$(call run_with_auth,.,bq mk --dataset --location=US $(PROJECT_ID):analytics)
+	$(call run_with_auth,.,bq query --use_legacy_sql=false < create_events_table.sql)
 
 # Webサイトのみをデプロイ（手動）
 web-deploy: check-deps
@@ -159,18 +141,10 @@ web-deploy: check-deps
 		echo "例: make web-deploy PROJECT_ID=your-project-id"; \
 		exit 1; \
 	fi
-	@if [ -n "$(CREDENTIALS_FILE)" ]; then \
-		echo "認証ファイルを使用: $(CREDENTIALS_FILE)"; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" gsutil mb gs://$(PROJECT_ID)-web || echo "バケットは既に存在します"; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" gsutil web set -m index.html -e index.html gs://$(PROJECT_ID)-web; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" gsutil iam ch allUsers:objectViewer gs://$(PROJECT_ID)-web; \
-		GOOGLE_APPLICATION_CREDENTIALS="$(CREDENTIALS_FILE)" gsutil cp index.html gs://$(PROJECT_ID)-web/; \
-	else \
-		gsutil mb gs://$(PROJECT_ID)-web || echo "バケットは既に存在します"; \
-		gsutil web set -m index.html -e index.html gs://$(PROJECT_ID)-web; \
-		gsutil iam ch allUsers:objectViewer gs://$(PROJECT_ID)-web; \
-		gsutil cp index.html gs://$(PROJECT_ID)-web/; \
-	fi
+	$(call run_with_auth,.,gsutil mb gs://$(PROJECT_ID)-web || echo "バケットは既に存在します")
+	$(call run_with_auth,.,gsutil web set -m index.html -e index.html gs://$(PROJECT_ID)-web)
+	$(call run_with_auth,.,gsutil iam ch allUsers:objectViewer gs://$(PROJECT_ID)-web)
+	$(call run_with_auth,.,gsutil cp index.html gs://$(PROJECT_ID)-web/)
 
 # 一時ファイルの削除
 clean:
