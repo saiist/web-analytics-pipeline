@@ -1,0 +1,6 @@
+# Terraform Variables Example
+# Copy this file to terraform.tfvars and modify as needed
+
+project_id = "your-analytics-project"
+region     = "us-central1"
+location   = "US"

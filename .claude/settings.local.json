@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export PATH=$PATH:~/google-cloud-sdk/bin)",
+      "Bash(bq rm:*)",
+      "Bash(cp:*)",
+      "Bash(terraform:*)",
+      "Bash(gcloud:*)",
+      "Bash(bq mk:*)",
+      "Bash(gsutil cp:*)",
+      "Bash(grep:*)",
+      "Bash(make:*)"
+    ],
+    "deny": []
+  }
+}
