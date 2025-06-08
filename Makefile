@@ -1,11 +1,13 @@
 # Web Analytics Pipeline Makefile
 # このMakefileはGoogle Cloud上のWebアナリティクスパイプラインの開発とデプロイを支援します
 
-.PHONY: help init deploy destroy test clean function-deploy function-test bq-setup web-deploy check-deps
+.PHONY: help auth check-deps init deploy destroy test clean function-deploy function-test bq-setup web-deploy
 
 # デフォルトターゲット
 help:
 	@echo "利用可能なコマンド:"
+	@echo "  auth           - Google Cloud認証の設定方法を表示"
+	@echo "  check-deps     - 依存関係をチェック"
 	@echo "  init           - Terraformの初期化"
 	@echo "  deploy         - 完全なインフラをデプロイ"
 	@echo "  destroy        - 全リソースを削除"
@@ -15,7 +17,6 @@ help:
 	@echo "  bq-setup       - BigQueryリソースを手動作成"
 	@echo "  web-deploy     - Webサイトのみをデプロイ"
 	@echo "  clean          - 一時ファイルを削除"
-	@echo "  check-deps     - 依存関係をチェック"
 
 # 依存関係のチェック
 check-deps:
@@ -25,6 +26,17 @@ check-deps:
 	@which bq >/dev/null || (echo "Error: bq CLI がインストールされていません" && exit 1)
 	@which gsutil >/dev/null || (echo "Error: gsutil がインストールされていません" && exit 1)
 	@echo "✅ 全依存関係が利用可能です"
+
+# Google Cloud認証の設定
+auth:
+	@echo "Google Cloud認証を設定中..."
+	@echo "以下のコマンドのいずれかを実行してください:"
+	@echo "1. Application Default Credentials (推奨):"
+	@echo "   gcloud auth application-default login"
+	@echo "2. gcloud認証:"
+	@echo "   gcloud auth login"
+	@echo "3. サービスアカウントキー:"
+	@echo "   export GOOGLE_APPLICATION_CREDENTIALS=\"path/to/service-account-key.json\""
 
 # Terraformの初期化
 init: check-deps

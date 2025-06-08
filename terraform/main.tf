@@ -40,10 +40,21 @@ variable "deletion_protection" {
   default     = true
 }
 
+variable "credentials_file" {
+  description = "Path to the Google Cloud service account key file (optional)"
+  type        = string
+  default     = null
+}
+
 # Provider configuration
+# 認証方法（以下のいずれかを選択）:
+# 1. Application Default Credentials (推奨): gcloud auth application-default login
+# 2. サービスアカウントキー: credentials = "path/to/service-account-key.json"
+# 3. 環境変数: GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project     = var.project_id
+  region      = var.region
+  credentials = var.credentials_file  # サービスアカウントキーを使用する場合のみ指定
 }
 
 # Enable required APIs

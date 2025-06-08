@@ -28,6 +28,20 @@
 
 ## クイックスタート
 
+### 事前準備
+
+1. Google Cloud認証を設定:
+```bash
+# 認証方法を確認
+make auth
+
+# Application Default Credentials（推奨）
+gcloud auth application-default login
+
+# またはgcloud認証
+gcloud auth login
+```
+
 ### Makefileを使用（推奨）
 
 ```bash
@@ -161,6 +175,7 @@ terraform destroy
 
 ```bash
 make help           # 利用可能なコマンドを表示
+make auth           # Google Cloud認証の設定方法を表示
 make check-deps     # 依存関係をチェック
 make init           # Terraformを初期化
 make deploy         # 完全なインフラをデプロイ
